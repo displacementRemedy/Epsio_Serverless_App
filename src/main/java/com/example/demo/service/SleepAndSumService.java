@@ -9,14 +9,11 @@ import java.util.concurrent.*;
 public class SleepAndSumService {
 
     private ThreadPoolExecutor executor;
-    private int requestCounter;
-    private static final Object countLock = new Object();
 
     @PostConstruct
     public void init() {
         executor = (ThreadPoolExecutor) Executors.newCachedThreadPool();
         executor.setKeepAliveTime(6000, TimeUnit.MILLISECONDS);
-        requestCounter = 0;
     }
 
     public int getSleepAndSum(int num1, int num2) throws ExecutionException, InterruptedException {
@@ -29,7 +26,6 @@ public class SleepAndSumService {
         Future<Integer> future = executor.submit(callableObj);
 
         Integer i = future.get();
-        incrementCount();
         return i;
     }
 
@@ -37,13 +33,7 @@ public class SleepAndSumService {
         return executor.getActiveCount();
     }
 
-    public synchronized int getRequestCounter() {
-        return requestCounter;
-    }
-
-    private void incrementCount() {
-        synchronized (countLock) {
-            requestCounter++;
-        }
+    public synchronized long getRequestCounter() {
+        return executor.getCompletedTaskCount() + executor.getActiveCount();
     }
 }

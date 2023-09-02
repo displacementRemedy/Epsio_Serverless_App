@@ -21,7 +21,7 @@ public class MonitorController {
     }
 
     @GetMapping(value = "request_counter")
-    public int getRequestCounter() {
+    public long getRequestCounter() {
         return sleepAndSumService.getRequestCounter();
     }
 }
