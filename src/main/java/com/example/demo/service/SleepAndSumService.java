@@ -25,8 +25,7 @@ public class SleepAndSumService {
 
         Future<Integer> future = executor.submit(callableObj);
 
-        Integer i = future.get();
-        return i;
+        return future.get();
     }
 
     public synchronized int getActiveProcesses() {
