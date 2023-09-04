@@ -22,7 +22,7 @@ public class SleepAndSumController {
      * @return int
      */
     @GetMapping(value = "/sleep_and_sum")
-    public int getSleepAndSum(int num1, int num2) throws ExecutionException, InterruptedException {
+    public int getSleepAndSum(int num1, int num2) throws Exception {
         return sleepAndSumService.getSleepAndSum(num1, num2);
     }
 }

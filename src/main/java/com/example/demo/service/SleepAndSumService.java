@@ -1,61 +1,116 @@
 package com.example.demo.service;
 
+import com.example.demo.callable.SleepAndSumCallable;
+import com.example.demo.callable.SleepAndSumThread;
+import com.example.demo.reclamation.ThreadShutdownRunnable;
 import jakarta.annotation.PostConstruct;
+import org.apache.tomcat.util.threads.TaskThread;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.*;
+import java.util.stream.Collectors;
 
 @Service
 public class SleepAndSumService implements SleepAndSumServiceInterface {
 
-    private ThreadPoolExecutor executor;
+    private static BlockingQueue<FutureTask<Integer>> callables;
+    private static List<SleepAndSumThread> threads; //TODO this doesn't need to be a blocking queue, change to list
+    private int requestCounter = 0;
+    private final Object requestLock = new Object();
+    private final Object notifySync = new Object();
+    private Logger logger = LoggerFactory.getLogger(SleepAndSumService.class);
+
+    public SleepAndSumService() {
+        callables = new LinkedBlockingQueue<>();
+        threads = new ArrayList<>();
+    }
 
     /**
-     * Ensure application has started before initializing executor pool
+     * Create always-running thread
+     * Sits on the threads queue, checks for expired (over-time)
      */
     @PostConstruct
     public void init() {
-        executor = (ThreadPoolExecutor) Executors.newCachedThreadPool();
-        executor.setKeepAliveTime(6000, TimeUnit.MILLISECONDS);
+        Thread thread = new Thread(new ThreadShutdownRunnable());
+        thread.start();
     }
 
+
     /**
-     * Create executable callable, submit to executor. Wait on future get
-     *
+     * Increment requestCounter
+     * Create FutureTask that will be called from within external thread
+     * Check if any threads have a WAITING status
+     *  If so, notify
+     *  If not, create new thread and start
      * @param num1 int
      * @param num2 int
      * @return int
-     * @throws ExecutionException e
-     * @throws InterruptedException e
      */
     @Override
-    public int getSleepAndSum(int num1, int num2) throws ExecutionException, InterruptedException {
-        final int number1 = num1, number2 = num2;
-        Callable<Integer> callableObj = () -> {
-            Thread.sleep(3000);
-            return number1 + number2;
-        };
+    public int getSleepAndSum(int num1, int num2) throws Exception {
+        synchronized (requestLock) {
+            requestCounter++;
+        }
 
-        Future<Integer> future = executor.submit(callableObj);
+        FutureTask<Integer> task = new FutureTask<>(new SleepAndSumCallable(num1, num2));
+        callables.add(task);
 
-        return future.get();
+        List<SleepAndSumThread> waitingThreads = threads.stream().filter(thread -> thread.getState().equals(Thread.State.WAITING)).toList();
+        if (!waitingThreads.isEmpty()) {
+            logger.info("Notifying waiting threads");
+            try {
+                waitingThreads.forEach(thread -> {
+                    synchronized (thread) {
+                        thread.notify();
+                    }
+                });
+            } catch (Exception e) {
+                logger.debug("Caught: " + e);
+            }
+        } else {
+            SleepAndSumThread thread = new SleepAndSumThread();
+            logger.info("Creating new thread with ID " + thread.threadId());
+            threads.add(thread);
+            thread.start();
+        }
+
+        return task.get();
     }
 
+
     /**
-     * Get active threads in executor
+     * Get alive threads
      * @return int
      */
     @Override
     public synchronized int getActiveProcesses() {
-        return executor.getActiveCount();
+        return threads.size();
     }
 
     /**
-     * Get total threads, both open and closed, in executor
+     * Get total number of requests, both open and closed
      * @return long
      */
     @Override
     public synchronized long getRequestCounter() {
-        return executor.getCompletedTaskCount() + executor.getActiveCount();
+        return requestCounter;
     }
+
+    //--------------------------------------------------------
+    // Static Getter Methods
+    //--------------------------------------------------------
+
+    public static synchronized BlockingQueue<FutureTask<Integer>> getCallables() {
+        return callables;
+    }
+
+    public static synchronized List<SleepAndSumThread> getThreads() {
+        return threads;
+    }
+
+
 }
