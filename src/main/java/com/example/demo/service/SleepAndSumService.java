@@ -4,29 +4,27 @@ import com.example.demo.callable.SleepAndSumCallable;
 import com.example.demo.callable.SleepAndSumThread;
 import com.example.demo.reclamation.ThreadShutdownRunnable;
 import jakarta.annotation.PostConstruct;
-import org.apache.tomcat.util.threads.TaskThread;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.*;
-import java.util.stream.Collectors;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.FutureTask;
+import java.util.concurrent.LinkedBlockingQueue;
 
 @Service
 public class SleepAndSumService implements SleepAndSumServiceInterface {
 
     private static BlockingQueue<FutureTask<Integer>> callables;
-    private static List<SleepAndSumThread> threads; //TODO this doesn't need to be a blocking queue, change to list
+    private static BlockingQueue<SleepAndSumThread> threads;
     private int requestCounter = 0;
     private final Object requestLock = new Object();
-    private final Object notifySync = new Object();
-    private Logger logger = LoggerFactory.getLogger(SleepAndSumService.class);
+    private final Logger logger = LoggerFactory.getLogger(SleepAndSumService.class);
 
     public SleepAndSumService() {
         callables = new LinkedBlockingQueue<>();
-        threads = new ArrayList<>();
+        threads = new LinkedBlockingQueue<>();
     }
 
     /**
@@ -108,7 +106,7 @@ public class SleepAndSumService implements SleepAndSumServiceInterface {
         return callables;
     }
 
-    public static synchronized List<SleepAndSumThread> getThreads() {
+    public static synchronized BlockingQueue<SleepAndSumThread> getThreads() {
         return threads;
     }
 

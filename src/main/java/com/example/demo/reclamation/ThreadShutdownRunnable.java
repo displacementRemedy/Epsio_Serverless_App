@@ -9,24 +9,25 @@ public class ThreadShutdownRunnable implements Runnable {
      */
     @Override
     public void run() {
-        while (true) {
-            SleepAndSumService.getThreads().stream()
-                    .filter(Thread::isAlive)
-                    .filter(thread -> !thread.isRunning())
-                    .filter(thread -> System.currentTimeMillis() > thread.getLastRunInMillis() + 6000)
-                    .forEach(thread -> {
-                        synchronized (this) {
-                            thread.interrupt();
-                            thread.stopAlive();
-                            SleepAndSumService.getThreads().remove(thread);
-                        }
-                    });
-            try {
+        try {
+            while (true) {
+                SleepAndSumService.getThreads().stream()
+                        .filter(Thread::isAlive)
+                        .filter(thread -> !thread.isRunning())
+                        .filter(thread -> System.currentTimeMillis() > thread.getLastRunInMillis() + 6000)
+                        .forEach(thread -> {
+                            synchronized (this) {
+                                thread.interrupt();
+                                thread.stopAlive();
+                                SleepAndSumService.getThreads().remove(thread);
+                            }
+                        });
+
                 //Busy-waiting to sit on threads. Shouldn't wait or notify, who knows when the next request will come in
                 Thread.sleep(100);
-            } catch (InterruptedException e) {
-                throw new RuntimeException(e);
             }
+        } catch (Exception e) {
+            throw new RuntimeException(e);
         }
     }
 }
